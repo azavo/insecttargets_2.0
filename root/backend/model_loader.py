@@ -20,3 +20,10 @@ FEATURE_ORDER = [
           "hour_sin", "hour_cos", "day_sin", "day_cos",
           "ecoregion", "land_cover_code"
 ]
+
+COMMON_NAMES = joblib.load(BASE_DIR / "pkls/common_names.pkl")
+
+ORDER_MAP = joblib.load(BASE_DIR / "pkls/order_map.pkl")
+
+def get_order(species):
+    return ORDER_MAP.get(species, "Unknown")

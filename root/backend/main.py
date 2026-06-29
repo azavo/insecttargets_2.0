@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
 
-from model_loader import MODEL, LABEL_ENCODER, CAT_CATEGORIES, ECOREGIONS, NLCD_RASTER_PATH, FEATURE_ORDER
+from model_loader import MODEL, LABEL_ENCODER, CAT_CATEGORIES, ECOREGIONS, NLCD_RASTER_PATH, FEATURE_ORDER, COMMON_NAMES, ORDER_MAP, get_order
 from features import get_ecoregion, get_land_cover, time_features
 from weather import get_weather_for_datetime, precip_phase
 from inat import get_user_seen_species
@@ -32,7 +32,7 @@ def confirmed_nearby_species(lat, lon, radius_km=5):
 '''
 @app.get("/predict")
 def predict(lat: float, lon: float, datetime_str: str | None = None,
-            inat_username: str | None = None, mode: str = "all"):
+            inat_username: str | None = None, mode: str = "all", order: str | None = None):
     dt = datetime.fromisoformat(datetime_str) if datetime_str else datetime.utcnow()
 
     ecoregion = get_ecoregion(lat, lon, ECOREGIONS)
@@ -66,6 +66,9 @@ def predict(lat: float, lon: float, datetime_str: str | None = None,
     if mode == "unseen" and inat_username:
         seen = get_user_seen_species(inat_username)
         ranked = [i for i in ranked if LABEL_ENCODER.inverse_transform([i])[0] not in seen]
+    if order:
+        ranked = [i for i in ranked if get_order(LABEL_ENCODER.inverse_transform([i])[0]) == order]
+
 
     top20 = ranked[:20]
     #nearby_set = set(confirmed_nearby_species(lat, lon))
@@ -74,6 +77,8 @@ def predict(lat: float, lon: float, datetime_str: str | None = None,
         {
             "rank": r + 1,
             "species": LABEL_ENCODER.inverse_transform([i])[0],
+            "common_name": COMMON_NAMES.get(LABEL_ENCODER.inverse_transform([i])[0], ""),
+            "order": get_order(LABEL_ENCODER.inverse_transform([i])[0]),
             "probability": round(float(probs[i]), 4),
     #        "confirmed_nearby": LABEL_ENCODER.inverse_transform([i])[0] in nearby_set,
         }
@@ -88,3 +93,7 @@ def predict(lat: float, lon: float, datetime_str: str | None = None,
         "predictions": predictions,
     #    "local_specialties": local_specialties,
     }
+
+@app.get("/orders")
+def get_orders():
+    return sorted(set(ORDER_MAP.values()))
